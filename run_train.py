@@ -20,8 +20,7 @@ if __name__ == "__main__":
     _, args_params, aux_params = mx.model.load_checkpoint('pretrained_models/resnet-34', 0)
 
     # get some input
-    # change it to the data rec you create, and modify the batch_size
-    train_data = get_iterator(path='DATA_rec/drive_full.rec', data_shape=(3, 224, 224), label_width=7*7*9, batch_size=32, shuffle=True)
+        train_data = get_iterator(path='DATA_rec/drive_full.rec', data_shape=(3, 224, 224), label_width=7*7*9, batch_size=32, shuffle=True)
     val_data = get_iterator(path='DATA_rec/drive_full.rec', data_shape=(3, 224, 224), label_width=7*7*9, batch_size=32)
     
     # allocate gpu/cpu mem to the sym
