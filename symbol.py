@@ -16,14 +16,15 @@ class MyConstant(mx.init.Initializer):
 def expit_tensor(x):
     return 1 / (1 + mx.sym.exp(-x))
 
-def loss_Yolov2(label, pred,anchors):
+def loss_Yolov2(label, pred, anchors):
     sprob = 1
     snoob = 0.5
     scoor = 5
     size_H, size_W = (13,13)
     B = 5
     HW = size_H * size_W
-
+    
+#    pred = (pred + 1) / 2
     #Read anchors, they should be  0<w,h<1
     anchors_w,anchors_h = mx.sym.split(anchors, axis=1, num_outputs=2, name="anchor_split")
 
@@ -43,7 +44,7 @@ def loss_Yolov2(label, pred,anchors):
     area_l = (w_l * h_l) * (size_W * size_H)
 
     pred_reshape = mx.sym.reshape(pred,[-1,size_H,size_W,B,9])
-    prob_p, x_p, y_p, wr_p, hr_p,cls1,cls2,cls3,cls4 = mx.sym.split(pred_reshape,axis=4,num_outputs=9, name="pred_split")
+    prob_p, x_p, y_p, wr_p, hr_p,clsp1,clsp2,clsp3,clsp4 = mx.sym.split(pred_reshape,axis=4,num_outputs=9, name="pred_split")
     x_adjust = expit_tensor(x_p) - 0.5
     y_adjust = expit_tensor(y_p) - 0.5
     
@@ -51,10 +52,10 @@ def loss_Yolov2(label, pred,anchors):
     h_adjust = mx.sym.sqrt(mx.sym.broadcast_mul(mx.sym.exp(hr_p),mx.sym.reshape(anchors_h,shape=[1,1,B,1])))
     
     prob_adjust = expit_tensor(prob_p)
-    cls1p = expit_tensor(cls1)
-    cls2p = expit_tensor(cls2)
-    cls3p = expit_tensor(cls3)
-    cls4p = expit_tensor(cls4)
+    cls1p = expit_tensor(clsp1)
+    cls2p = expit_tensor(clsp2)
+    cls3p = expit_tensor(clsp3)
+    cls4p = expit_tensor(clsp4)
 
 
     # get predict upperleft and bottomright
@@ -86,15 +87,21 @@ def loss_Yolov2(label, pred,anchors):
     mask = (prob_anchor_l * 5 + (1 - prob_anchor_l) * 0.5)
 
     loss_prob = mx.sym.LinearRegressionOutput(data=prob_adjust * mask, label=prob_anchor_l * mask, grad_scale=1,name="lossprob")
-    loss_x = mx.sym.LinearRegressionOutput(data=mx.sym.broadcast_mul(x_adjust,best_box),label=x_anchor_l,grad_scale=scoor,name="lossx")
+#    loss_x = mx.sym.LinearRegressionOutput(data=mx.sym.broadcast_mul(x_adjust,best_box),label=x_anchor_l,grad_scale=scoor,name="lossx")
+    loss_x = mx.sym.LinearRegressionOutput(data=x_adjust,label=x_anchor_l,grad_scale=scoor,name="lossx")
     loss_y = mx.sym.LinearRegressionOutput(data=y_adjust,label=y_anchor_l,grad_scale=scoor,name="lossy")
     loss_w = mx.sym.LinearRegressionOutput(data=w_adjust,label=w_anchor_l,grad_scale=scoor,name="lossw")
     loss_h = mx.sym.LinearRegressionOutput(data=h_adjust,label=h_anchor_l,grad_scale=scoor,name="lossh")
 
-    loss_cls1 = mx.sym.LinearRegressionOutput(data=cls1p,label=cls1,grad_scale=scoor,name="losscls1")
-    loss_cls2 = mx.sym.LinearRegressionOutput(data=cls2p,label=cls2,grad_scale=scoor,name="losscls2")
-    loss_cls3 = mx.sym.LinearRegressionOutput(data=cls3p,label=cls3,grad_scale=scoor,name="losscls3")
-    loss_cls4 = mx.sym.LinearRegressionOutput(data=cls4p,label=cls4,grad_scale=scoor,name="losscls4")
+    cls1_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls1, axis=-1), name="cls_anchor_l1")
+    cls2_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls2, axis=-1), name="cls_anchor_l2")
+    cls3_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls3, axis=-1), name="cls_anchor_l3")
+    cls4_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls4, axis=-1), name="cls_anchor_l4")
+
+    loss_cls1 = mx.sym.LinearRegressionOutput(data=cls1p,label=cls1_anchor_l,grad_scale=scoor,name="losscls1")
+    loss_cls2 = mx.sym.LinearRegressionOutput(data=cls2p,label=cls2_anchor_l,grad_scale=scoor,name="losscls2")
+    loss_cls3 = mx.sym.LinearRegressionOutput(data=cls3p,label=cls3_anchor_l,grad_scale=scoor,name="losscls3")
+    loss_cls4 = mx.sym.LinearRegressionOutput(data=cls4p,label=cls4_anchor_l,grad_scale=scoor,name="losscls4")
 
     loss = loss_prob + loss_x + loss_y + loss_w + loss_h + loss_cls1 + loss_cls2 + loss_cls3 + loss_cls4
     return loss
