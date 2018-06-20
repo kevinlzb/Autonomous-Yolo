@@ -16,6 +16,47 @@ class MyConstant(mx.init.Initializer):
 def expit_tensor(x):
     return 1 / (1 + mx.sym.exp(-x))
 
+
+# Yolo loss
+def YOLO_loss(predict, label):
+    """
+        predict (params): mx.sym->which is NDarray (tensor), its shape is (batch_size, 7, 7,5 )
+        label: same as predict
+        """
+    # Reshape input to desired shape
+    predict = mx.sym.reshape(predict, shape=(-1, 49, 9))
+    # shift everything to (0, 1)
+    predict_shift = (predict+1)/2
+    label = mx.sym.reshape(label, shape=(-1, 49, 9))
+    # split the tensor in the order of [prob, x, y, w, h]
+    cl, xl, yl, wl, hl, clsl1, clsl2, clsl3, clsl4 = mx.sym.split(label, num_outputs=9, axis=2)
+    cp, xp, yp, wp, hp, clsp1, clsp2, clsp3, clsp4 = mx.sym.split(predict_shift, num_outputs=9, axis=2)
+    # clsesl = mx.sym.Concat(clsl1, clsl2, clsl3, clsl4, dim=2)
+    # clsesp = mx.sym.Concat(clsp1, clsp2, clsp3, clsp4, dim=2)
+    # weight different target differently
+    lambda_coord = 5
+    lambda_obj = 1
+    lambda_noobj = 0.2
+    mask = cl*lambda_obj+(1-cl)*lambda_noobj
+    
+    # linear regression
+    lossc = mx.sym.LinearRegressionOutput(label=cl*mask, data=cp*mask)
+    lossx = mx.sym.LinearRegressionOutput(label=xl*cl*lambda_coord, data=xp*cl*lambda_coord)
+    lossy = mx.sym.LinearRegressionOutput(label=yl*cl*lambda_coord, data=yp*cl*lambda_coord)
+    lossw = mx.sym.LinearRegressionOutput(label=mx.sym.sqrt(wl)*cl*lambda_coord, data=mx.sym.sqrt(wp)*cl*lambda_coord)
+    lossh = mx.sym.LinearRegressionOutput(label=mx.sym.sqrt(hl)*cl*lambda_coord, data=mx.sym.sqrt(hp)*cl*lambda_coord)
+    losscls1 = mx.sym.LinearRegressionOutput(label=clsl1*cl, data=clsp1*cl)
+    losscls2 = mx.sym.LinearRegressionOutput(label=clsl2*cl, data=clsp2*cl)
+    losscls3 = mx.sym.LinearRegressionOutput(label=clsl3*cl, data=clsp3*cl)
+    losscls4 = mx.sym.LinearRegressionOutput(label=clsl4*cl, data=clsp4*cl)
+    losscls = losscls1+losscls2+losscls3+losscls4
+    # return joint loss
+    loss = lossc+lossx+lossy+lossw+lossh+losscls
+    return loss
+
+
+
+
 def loss_Yolov2(label, pred, anchors):
     sprob = 1
     snoob = 0.5
@@ -37,10 +78,6 @@ def loss_Yolov2(label, pred, anchors):
     upperleft_y_l = y_l - h_l * size_H * 0.5
     bottomright_x_l = x_l + w_l * size_W * 0.5
     bottomright_y_l = y_l + h_l * size_H * 0.5
-    # upperleft_x_l = -w_l * size_W * 0.5
-    # upperleft_y_l = -h_l * size_W * 0.5
-    # bottomright_x_l = w_l * size_W * 0.5
-    # bottomright_y_l = h_l * size_H * 0.5
     area_l = (w_l * h_l) * (size_W * size_H)
 
     pred_reshape = mx.sym.reshape(pred,[-1,size_H,size_W,B,9])
@@ -84,24 +121,50 @@ def loss_Yolov2(label, pred, anchors):
     w_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(w_l, axis=-1), name="w_anchor_l")
     h_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(h_l, axis=-1), name="h_anchor_l")
 
-    mask = (prob_anchor_l * 5 + (1 - prob_anchor_l) * 0.5)
+    mask = (prob_anchor_l * 1 + (1 - prob_anchor_l) * 0.2)
+    
+#     loss_prob = mx.sym.LinearRegressionOutput(data=prob_adjust * mask, label=prob_anchor_l * mask, grad_scale=1,name="lossprob")
+# #    loss_x = mx.sym.LinearRegressionOutput(data=mx.sym.broadcast_mul(x_adjust,best_box),label=x_anchor_l,grad_scale=scoor,name="lossx")
+#     loss_x = mx.sym.LinearRegressionOutput(data=x_adjust * mask,label=x_anchor_l * mask,grad_scale=scoor,name="lossx")
+#     loss_y = mx.sym.LinearRegressionOutput(data=y_adjust * mask,label=y_anchor_l * mask,grad_scale=scoor,name="lossy")
+#     loss_w = mx.sym.LinearRegressionOutput(data=w_adjust * mask,label=w_anchor_l * mask,grad_scale=scoor,name="lossw")
+#     loss_h = mx.sym.LinearRegressionOutput(data=h_adjust * mask,label=h_anchor_l * mask,grad_scale=scoor,name="lossh")
+#
+#     cls1_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls1, axis=-1), name="cls_anchor_l1")
+#     cls2_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls2, axis=-1), name="cls_anchor_l2")
+#     cls3_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls3, axis=-1), name="cls_anchor_l3")
+#     cls4_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls4, axis=-1), name="cls_anchor_l4")
+#
+#     loss_cls1 = mx.sym.LinearRegressionOutput(data=cls1p * mask,label=cls1_anchor_l * mask,grad_scale=scoor,name="losscls1")
+#     loss_cls2 = mx.sym.LinearRegressionOutput(data=cls2p * mask,label=cls2_anchor_l * mask,grad_scale=scoor,name="losscls2")
+#     loss_cls3 = mx.sym.LinearRegressionOutput(data=cls3p * mask,label=cls3_anchor_l * mask,grad_scale=scoor,name="losscls3")
+#     loss_cls4 = mx.sym.LinearRegressionOutput(data=cls4p * mask ,label=cls4_anchor_l * mask,grad_scale=scoor,name="losscls4")
 
-    loss_prob = mx.sym.LinearRegressionOutput(data=prob_adjust * mask, label=prob_anchor_l * mask, grad_scale=1,name="lossprob")
-#    loss_x = mx.sym.LinearRegressionOutput(data=mx.sym.broadcast_mul(x_adjust,best_box),label=x_anchor_l,grad_scale=scoor,name="lossx")
-    loss_x = mx.sym.LinearRegressionOutput(data=x_adjust,label=x_anchor_l,grad_scale=scoor,name="lossx")
-    loss_y = mx.sym.LinearRegressionOutput(data=y_adjust,label=y_anchor_l,grad_scale=scoor,name="lossy")
-    loss_w = mx.sym.LinearRegressionOutput(data=w_adjust,label=w_anchor_l,grad_scale=scoor,name="lossw")
-    loss_h = mx.sym.LinearRegressionOutput(data=h_adjust,label=h_anchor_l,grad_scale=scoor,name="lossh")
+    loss_prob = mx.sym.LinearRegressionOutput(data=prob_adjust * mask, label=prob_anchor_l * mask, grad_scale=1,
+                                              name="lossprob")
+    #    loss_x = mx.sym.LinearRegressionOutput(data=mx.sym.broadcast_mul(x_adjust,best_box),label=x_anchor_l,grad_scale=scoor,name="lossx")
+    loss_x = mx.sym.LinearRegressionOutput(data=x_adjust * best_box * scoor, label=x_anchor_l * scoor, grad_scale=scoor,
+                                           name="lossx")
+    loss_y = mx.sym.LinearRegressionOutput(data=y_adjust * best_box * scoor, label=y_anchor_l * scoor, grad_scale=scoor,
+                                           name="lossy")
+    loss_w = mx.sym.LinearRegressionOutput(data=w_adjust * best_box * scoor, label=w_anchor_l * scoor, grad_scale=scoor,
+                                           name="lossw")
+    loss_h = mx.sym.LinearRegressionOutput(data=h_adjust * best_box * scoor, label=h_anchor_l * scoor, grad_scale=scoor,
+                                           name="lossh")
 
     cls1_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls1, axis=-1), name="cls_anchor_l1")
     cls2_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls2, axis=-1), name="cls_anchor_l2")
     cls3_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls3, axis=-1), name="cls_anchor_l3")
     cls4_anchor_l = mx.sym.broadcast_mul(best_box, mx.sym.expand_dims(cls4, axis=-1), name="cls_anchor_l4")
 
-    loss_cls1 = mx.sym.LinearRegressionOutput(data=cls1p,label=cls1_anchor_l,grad_scale=scoor,name="losscls1")
-    loss_cls2 = mx.sym.LinearRegressionOutput(data=cls2p,label=cls2_anchor_l,grad_scale=scoor,name="losscls2")
-    loss_cls3 = mx.sym.LinearRegressionOutput(data=cls3p,label=cls3_anchor_l,grad_scale=scoor,name="losscls3")
-    loss_cls4 = mx.sym.LinearRegressionOutput(data=cls4p,label=cls4_anchor_l,grad_scale=scoor,name="losscls4")
+    loss_cls1 = mx.sym.LinearRegressionOutput(data=cls1p , label=cls1_anchor_l, grad_scale=scoor,
+                                              name="losscls1")
+    loss_cls2 = mx.sym.LinearRegressionOutput(data=cls2p , label=cls2_anchor_l, grad_scale=scoor,
+                                              name="losscls2")
+    loss_cls3 = mx.sym.LinearRegressionOutput(data=cls3p , label=cls3_anchor_l, grad_scale=scoor,
+                                              name="losscls3")
+    loss_cls4 = mx.sym.LinearRegressionOutput(data=cls4p , label=cls4_anchor_l, grad_scale=scoor,
+                                              name="losscls4")
 
     loss = loss_prob + loss_x + loss_y + loss_w + loss_h + loss_cls1 + loss_cls2 + loss_cls3 + loss_cls4
     return loss
@@ -109,29 +172,26 @@ def loss_Yolov2(label, pred, anchors):
 
 
 # Get pretrained imagenet model
-def get_resnet_model(model_path,epoch,constr_arr):
-
-    label = mx.symbol.Variable('softmax_label')
-
-    anchors = mx.symbol.Variable('anchors', shape=(5,2), init= MyConstant(value = constr_arr), dtype=np.float32)
-    anchors = mx.sym.BlockGrad(anchors)
-
-    sym,args,aux = mx.model.load_checkpoint(model_path,epoch)
-    #extract the last bn layer
+def get_resnet_model(model_path, epoch):
+    # not necessary to be this name, you can do better
+    label = mx.sym.Variable('softmax_label')
+    # load symbol and actual weights
+    sym, args, aux = mx.model.load_checkpoint(model_path, epoch)
+    # extract last bn layer
     sym = sym.get_internals()['bn1_output']
-
-    #append two layers
+    # append two layers
     sym = mx.sym.Activation(data=sym, act_type="relu", name="relu_final")
-    sym = mx.sym.Convolution(data=sym, kernel=(3,3),
-                             num_filter = 45, pad=(1,1),
-                             stride = (1,1), no_bias=True,
+    sym = mx.sym.Convolution(data=sym, kernel=(3, 3),
+                             num_filter=9, pad=(1, 1),
+                             stride=(1, 1), no_bias=True,
                              )
-    #get softsign
+    # get softsign
     sym = sym / (1 + mx.sym.abs(sym))
-    logit = mx.sym.transpose(sym, axes= (0,2,3,1), name = "logit")
-
-    #apply loss
-    loss_ = loss_Yolov2(label,logit,anchors);
+    logit = mx.sym.transpose(sym, axes=(0, 2, 3, 1), name="logit")
+    # apply loss
+    loss_ = YOLO_loss(logit, label)
+    # mxnet special requirement
     loss = mx.sym.MakeLoss(loss_)
-    out = mx.sym.Group([loss,mx.sym.BlockGrad(logit)])
+    # multi-output logit should be blocked from generating gradients
+    out = mx.sym.Group([loss, mx.sym.BlockGrad(logit)])
     return out
