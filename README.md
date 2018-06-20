@@ -13,7 +13,7 @@ The network is trained on Nvidia Geforce and is trained for 600 epoches and 30 e
 there is around 1-pixel off for the dimension of object. Here I applied my network on some random images. 
 <img src="https://github.com/kevinlzb/Autonomous-Yolo/blob/master/result/3.PNG" alt="img1"/>
 <img src="https://github.com/kevinlzb/Autonomous-Yolo/blob/master/result/1.PNG" alt="img2"/>
-<img src="https://github.com/kevinlzb/Autonomous-Yolo/blob/master/result/2.PNG" alt="img3"/>
+
 
 ## Requirements
 1.You can trained on your own GPU or use [AWS Instance](https://aws.amazon.com/marketplace/pp/B01M0AXXQ)
