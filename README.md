@@ -10,7 +10,10 @@ The output of the Yolov1 model is -1 * 7 * 7 * 5 and for Yolov2 is -1 * 13 * 13 
 
 ## Result
 The network is trained on Nvidia Geforce and is trained for 600 epoches and 30 epoches with dataset 10k and 130k repectively. The accuracy and precsion are easier to train, but width and height are difficult to learn,
-there is around 1-pixel off for the dimension of object. Here I applied my network on some random images. To check the result please goes to 
+there is around 1-pixel off for the dimension of object. Here I applied my network on some random images. 
+<img src="https://github.com/kevinlzb/Autonomous-Yolo/blob/master/result/3.PNG" alt="img1"/>
+<img src="https://github.com/kevinlzb/Autonomous-Yolo/blob/master/result/1.PNG" alt="img2"/>
+
 
 ## Requirements
 1.You can trained on your own GPU or use [AWS Instance](https://aws.amazon.com/marketplace/pp/B01M0AXXQ)
