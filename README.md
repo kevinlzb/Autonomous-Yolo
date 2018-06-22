@@ -34,8 +34,8 @@ Please goes to [Install MXNet](https://mxnet.incubator.apache.org/install/index.
 ## Preparation for Training
 1. please download Resnet for the feature extraction [Resnet](https://github.com/tornadomeet/ResNet)
 2. There are 10k images in the dataset in the beginning, but beacause the network is a litte bit overffitng so I did a data augmentation to increase the dataset to 130k finally.
-   Run [data_augmention] to increase the dataset by adjust the brightness x2, blur x2, constract x2 for each image.
-3. Run [data_preprocess] file to convert image to .rec file which is used for large dataset trainning in MXNet.
+   Run [data_augmention](https://github.com/kevinlzb/Autonomous-Yolo/blob/master/data_augmentation.py) to increase the dataset by adjust the brightness x2, blur x2, constract x2 for each image.
+3. Run [data_preprocess](https://github.com/kevinlzb/Autonomous-Yolo/blob/master/data_proposses.py) file to convert image to .rec file which is used for large dataset trainning in MXNet.
 
 ## Future improvements
 1. In the implementation of yolov2, I simpy used comman K-means algorithm to find 5 anchor boxes, but it is better to think about that box with larger size may 
